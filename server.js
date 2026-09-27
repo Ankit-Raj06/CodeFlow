@@ -5,58 +5,238 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-let reviews = [
-  { id: 1, title: "Add authentication", developer: "Ankit", reviewer: "Rahul", priority: "High", status: "Open" },
-  { id: 2, title: "Improve dashboard UI", developer: "Priya", reviewer: "Aarav", priority: "Medium", status: "In Review" }
+const reviews = [
+  {
+    id: 1,
+    title: "Authentication API Review",
+    developer: "Rahul",
+    reviewer: "Priya",
+    priority: "High",
+    status: "In Review"
+  },
+  {
+    id: 2,
+    title: "Dashboard UI Review",
+    developer: "Amit",
+    reviewer: "Neha",
+    priority: "Medium",
+    status: "Open"
+  },
+  {
+    id: 3,
+    title: "Database Service Review",
+    developer: "Rohan",
+    reviewer: "Priya",
+    priority: "High",
+    status: "Approved"
+  },
+  {
+    id: 4,
+    title: "Notification Feature Review",
+    developer: "Sneha",
+    reviewer: "Amit",
+    priority: "Low",
+    status: "Merged"
+  }
 ];
-let nextId = 3;
 
-app.get("/health", (req, res) => res.json({ status: "ok" }));
+const allowedStatuses = [
+  "Open",
+  "In Review",
+  "Changes Requested",
+  "Approved",
+  "Merged"
+];
 
+const allowedPriorities = [
+  "Low",
+  "Medium",
+  "High"
+];
+
+/*
+ * Health check
+ */
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok"
+  });
+});
+
+/*
+ * Get all reviews
+ *
+ * Optional filter:
+ * /api/reviews?status=Open
+ */
 app.get("/api/reviews", (req, res) => {
-  const status = req.query.status;
-  if (!status) return res.json(reviews);
-  return res.json(reviews.filter((review) => review.status === status));
+  const { status } = req.query;
+
+  if (status && !allowedStatuses.includes(status)) {
+    return res.status(400).json({
+      error: "Invalid status filter."
+    });
+  }
+
+  const result = status
+    ? reviews.filter((review) => review.status === status)
+    : reviews;
+
+  return res.json(result);
 });
 
-app.post("/api/reviews", (req, res) => {
-  const { title, developer, reviewer, priority } = req.body;
-  if (!title || !developer || !reviewer || !priority) {
-    return res.status(400).json({ error: "Title, developer, reviewer and priority are required." });
-  }
-  if (!["Low", "Medium", "High"].includes(priority)) {
-    return res.status(400).json({ error: "Priority must be Low, Medium or High." });
-  }
-  const review = { id: nextId++, title, developer, reviewer, priority, status: "Open" };
-  reviews.push(review);
-  return res.status(201).json(review);
+/*
+ * Get review statistics
+ */
+app.get("/api/reviews/stats", (req, res) => {
+  const stats = {
+    total: reviews.length,
+    open: reviews.filter((review) => review.status === "Open").length,
+    inReview: reviews.filter(
+      (review) => review.status === "In Review"
+    ).length,
+    changesRequested: reviews.filter(
+      (review) => review.status === "Changes Requested"
+    ).length,
+    approved: reviews.filter(
+      (review) => review.status === "Approved"
+    ).length,
+    merged: reviews.filter(
+      (review) => review.status === "Merged"
+    ).length
+  };
+
+  return res.json(stats);
 });
 
-app.put("/api/reviews/:id/status", (req, res) => {
+/*
+ * Get one review
+ */
+app.get("/api/reviews/:id", (req, res) => {
   const id = Number(req.params.id);
-  const { status } = req.body;
-  const allowed = ["Open", "In Review", "Changes Requested", "Approved", "Merged"];
-  if (!allowed.includes(status)) return res.status(400).json({ error: "Invalid review status." });
+
   const review = reviews.find((item) => item.id === id);
-  if (!review) return res.status(404).json({ error: "Review not found." });
-  review.status = status;
+
+  if (!review) {
+    return res.status(404).json({
+      error: "Review not found."
+    });
+  }
+
   return res.json(review);
 });
 
+/*
+ * Create a review
+ */
+app.post("/api/reviews", (req, res) => {
+  const {
+    title,
+    developer,
+    reviewer,
+    priority
+  } = req.body;
+
+  if (!title || !developer || !reviewer || !priority) {
+    return res.status(400).json({
+      error: "Title, developer, reviewer and priority are required."
+    });
+  }
+
+  if (!allowedPriorities.includes(priority)) {
+    return res.status(400).json({
+      error: "Invalid priority."
+    });
+  }
+
+  const newReview = {
+    id: reviews.length > 0
+      ? Math.max(...reviews.map((review) => review.id)) + 1
+      : 1,
+    title,
+    developer,
+    reviewer,
+    priority,
+    status: "Open"
+  };
+
+  reviews.push(newReview);
+
+  return res.status(201).json(newReview);
+});
+
+/*
+ * Update review status
+ */
+app.put("/api/reviews/:id/status", (req, res) => {
+  const id = Number(req.params.id);
+  const { status } = req.body;
+
+  const review = reviews.find((item) => item.id === id);
+
+  if (!review) {
+    return res.status(404).json({
+      error: "Review not found."
+    });
+  }
+
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({
+      error: "Invalid status."
+    });
+  }
+
+  review.status = status;
+
+  return res.json(review);
+});
+
+/*
+ * Delete review
+ */
 app.delete("/api/reviews/:id", (req, res) => {
   const id = Number(req.params.id);
+
   const index = reviews.findIndex((item) => item.id === id);
-  if (index === -1) return res.status(404).json({ error: "Review not found." });
+
+  if (index === -1) {
+    return res.status(404).json({
+      error: "Review not found."
+    });
+  }
+
   reviews.splice(index, 1);
+
   return res.status(204).send();
 });
 
+/*
+ * Frontend fallback
+ *
+ * Express 5 does not support app.get("*"),
+ * so app.use() is used here.
+ */
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(
+    path.join(__dirname, "public", "index.html")
+  );
 });
 
-if (require.main === module) app.listen(PORT, () => console.log(`CodeFlow running on port ${PORT}`));
-module.exports = { app, reviews };
+/*
+ * Start server only when this file is run directly.
+ *
+ * This allows the automated tests to import the
+ * Express application without starting a second server.
+ */
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`CodeFlow running on port ${PORT}`);
+  });
+}
+
+module.exports = {
+  app,
+  reviews
+};
