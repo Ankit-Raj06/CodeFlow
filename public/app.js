@@ -36,6 +36,7 @@ function renderReviews(reviews) {
       <div class="review-main">
         <div class="review-title">
           <h3>${escapeHtml(review.title)}</h3>
+
           <span class="priority ${review.priority.toLowerCase()}">
             ${review.priority}
           </span>
@@ -57,7 +58,10 @@ function renderReviews(reviews) {
 
         <select class="status-select" data-id="${review.id}">
           ${statuses.map((status) => `
-            <option ${status === review.status ? "selected" : ""}>
+            <option
+              value="${status}"
+              ${status === review.status ? "selected" : ""}
+            >
               ${status}
             </option>
           `).join("")}
@@ -75,16 +79,22 @@ function renderReviews(reviews) {
   `).join("");
 }
 
+/*
+ * Load statistics from the backend.
+ *
+ * The backend calculates the statistics through:
+ * GET /api/reviews/stats
+ */
 async function updateStats() {
-  const response = await fetch("/api/reviews");
-  const reviews = await response.json();
+  const response = await fetch("/api/reviews/stats");
+  const stats = await response.json();
 
   const cards = [
-    ["Total", reviews.length],
-    ["Open", countStatus(reviews, "Open")],
-    ["In Review", countStatus(reviews, "In Review")],
-    ["Approved", countStatus(reviews, "Approved")],
-    ["Merged", countStatus(reviews, "Merged")]
+    ["Total", stats.total],
+    ["Open", stats.open],
+    ["In Review", stats.inReview],
+    ["Approved", stats.approved],
+    ["Merged", stats.merged]
   ];
 
   statsContainer.innerHTML = cards.map(([label, value]) => `
@@ -95,17 +105,15 @@ async function updateStats() {
   `).join("");
 }
 
-function countStatus(reviews, status) {
-  return reviews.filter((review) => review.status === status).length;
-}
-
 async function changeStatus(id, status) {
   await fetch(`/api/reviews/${id}/status`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ status })
+    body: JSON.stringify({
+      status
+    })
   });
 
   await loadReviews();
@@ -119,14 +127,23 @@ async function deleteReview(id) {
   await loadReviews();
 }
 
+/*
+ * Handle status changes.
+ */
 reviewsContainer.addEventListener("change", (event) => {
   if (event.target.classList.contains("status-select")) {
     const id = Number(event.target.dataset.id);
 
-    changeStatus(id, event.target.value);
+    changeStatus(
+      id,
+      event.target.value
+    );
   }
 });
 
+/*
+ * Handle review deletion.
+ */
 reviewsContainer.addEventListener("click", (event) => {
   if (event.target.dataset.action === "delete") {
     const id = Number(event.target.dataset.id);
@@ -135,6 +152,9 @@ reviewsContainer.addEventListener("click", (event) => {
   }
 });
 
+/*
+ * Create a new review.
+ */
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -155,18 +175,27 @@ form.addEventListener("submit", async (event) => {
 
   if (!response.ok) {
     const result = await response.json();
+
     message.textContent = result.error;
+
     return;
   }
 
   form.reset();
+
   message.textContent = "Review request created.";
 
   await loadReviews();
 });
 
+/*
+ * Filter reviews by status.
+ */
 filter.addEventListener("change", loadReviews);
 
+/*
+ * Check whether the backend is running.
+ */
 async function checkHealth() {
   try {
     const response = await fetch("/health");
@@ -181,6 +210,9 @@ async function checkHealth() {
   }
 }
 
+/*
+ * Prevent HTML injection when displaying user input.
+ */
 function escapeHtml(value) {
   return value.replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
@@ -190,5 +222,9 @@ function escapeHtml(value) {
     "'": "&#039;"
   }[character]));
 }
+
+/*
+ * Initial application load.
+ */
 loadReviews();
 checkHealth();
