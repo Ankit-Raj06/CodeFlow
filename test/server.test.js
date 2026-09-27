@@ -166,3 +166,119 @@ test("invalid priority is rejected", async () => {
 
   assert.equal(response.status, 400);
 });
+
+/*
+ * Test 8:
+ * Search by title
+ */
+test("search finds review by title", async () => {
+  const response = await request(
+    "/api/reviews?q=Authentication"
+  );
+
+  assert.equal(response.status, 200);
+
+  const data = await response.json();
+
+  assert.ok(
+    data.some(
+      (review) =>
+        review.title === "Authentication API Review"
+    )
+  );
+});
+
+/*
+ * Test 9:
+ * Search by developer
+ */
+test("search finds review by developer", async () => {
+  const response = await request(
+    "/api/reviews?q=Rahul"
+  );
+
+  assert.equal(response.status, 200);
+
+  const data = await response.json();
+
+  assert.ok(
+    data.some(
+      (review) => review.developer === "Rahul"
+    )
+  );
+});
+
+/*
+ * Test 10:
+ * Search by reviewer
+ */
+test("search finds review by reviewer", async () => {
+  const response = await request(
+    "/api/reviews?q=Priya"
+  );
+
+  assert.equal(response.status, 200);
+
+  const data = await response.json();
+
+  assert.ok(
+    data.some(
+      (review) => review.reviewer === "Priya"
+    )
+  );
+});
+
+/*
+ * Test 11:
+ * Whitespace-only input is rejected
+ */
+test("POST rejects whitespace-only input", async () => {
+  const response = await request("/api/reviews", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      title: "   ",
+      developer: "Developer",
+      reviewer: "Reviewer",
+      priority: "Low"
+    })
+  });
+
+  assert.equal(response.status, 400);
+
+  const data = await response.json();
+
+  assert.equal(
+    data.error,
+    "Title, developer, reviewer and priority are required."
+  );
+});
+
+/*
+ * Test 12:
+ * Input whitespace is trimmed
+ */
+test("POST trims unnecessary whitespace", async () => {
+  const response = await request("/api/reviews", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      title: "  Trimmed Review  ",
+      developer: "  Test Developer  ",
+      reviewer: "  Test Reviewer  ",
+      priority: "Low"
+    })
+  });
+
+  assert.equal(response.status, 201);
+
+  const data = await response.json();
+
+  assert.equal(data.title, "Trimmed Review");
+  assert.equal(data.developer, "Test Developer");
+  assert.equal(data.reviewer, "Test Reviewer");
+});
