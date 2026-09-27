@@ -68,11 +68,13 @@ app.get("/health", (req, res) => {
 /*
  * Get all reviews
  *
- * Optional filter:
+ * Optional filters:
  * /api/reviews?status=Open
+ * /api/reviews?q=authentication
+ * /api/reviews?status=Open&q=dashboard
  */
 app.get("/api/reviews", (req, res) => {
-  const { status } = req.query;
+  const { status, q } = req.query;
 
   if (status && !allowedStatuses.includes(status)) {
     return res.status(400).json({
@@ -80,9 +82,33 @@ app.get("/api/reviews", (req, res) => {
     });
   }
 
-  const result = status
-    ? reviews.filter((review) => review.status === status)
-    : reviews;
+  const searchTerm = q
+    ? q.trim().toLowerCase()
+    : "";
+
+  let result = reviews;
+
+  /*
+   * Filter by status when a status is provided.
+   */
+  if (status) {
+    result = result.filter(
+      (review) => review.status === status
+    );
+  }
+
+  /*
+   * Search title, developer and reviewer.
+   */
+  if (searchTerm) {
+    result = result.filter((review) => {
+      return (
+        review.title.toLowerCase().includes(searchTerm) ||
+        review.developer.toLowerCase().includes(searchTerm) ||
+        review.reviewer.toLowerCase().includes(searchTerm)
+      );
+    });
+  }
 
   return res.json(result);
 });
@@ -93,7 +119,9 @@ app.get("/api/reviews", (req, res) => {
 app.get("/api/reviews/stats", (req, res) => {
   const stats = {
     total: reviews.length,
-    open: reviews.filter((review) => review.status === "Open").length,
+    open: reviews.filter(
+      (review) => review.status === "Open"
+    ).length,
     inReview: reviews.filter(
       (review) => review.status === "In Review"
     ).length,
@@ -117,7 +145,9 @@ app.get("/api/reviews/stats", (req, res) => {
 app.get("/api/reviews/:id", (req, res) => {
   const id = Number(req.params.id);
 
-  const review = reviews.find((item) => item.id === id);
+  const review = reviews.find(
+    (item) => item.id === id
+  );
 
   if (!review) {
     return res.status(404).json({
@@ -141,7 +171,8 @@ app.post("/api/reviews", (req, res) => {
 
   if (!title || !developer || !reviewer || !priority) {
     return res.status(400).json({
-      error: "Title, developer, reviewer and priority are required."
+      error:
+        "Title, developer, reviewer and priority are required."
     });
   }
 
@@ -153,7 +184,9 @@ app.post("/api/reviews", (req, res) => {
 
   const newReview = {
     id: reviews.length > 0
-      ? Math.max(...reviews.map((review) => review.id)) + 1
+      ? Math.max(
+          ...reviews.map((review) => review.id)
+        ) + 1
       : 1,
     title,
     developer,
@@ -174,7 +207,9 @@ app.put("/api/reviews/:id/status", (req, res) => {
   const id = Number(req.params.id);
   const { status } = req.body;
 
-  const review = reviews.find((item) => item.id === id);
+  const review = reviews.find(
+    (item) => item.id === id
+  );
 
   if (!review) {
     return res.status(404).json({
@@ -199,7 +234,9 @@ app.put("/api/reviews/:id/status", (req, res) => {
 app.delete("/api/reviews/:id", (req, res) => {
   const id = Number(req.params.id);
 
-  const index = reviews.findIndex((item) => item.id === id);
+  const index = reviews.findIndex(
+    (item) => item.id === id
+  );
 
   if (index === -1) {
     return res.status(404).json({
@@ -232,7 +269,9 @@ app.use((req, res) => {
  */
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`CodeFlow running on port ${PORT}`);
+    console.log(
+      `CodeFlow running on port ${PORT}`
+    );
   });
 }
 
