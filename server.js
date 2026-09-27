@@ -89,7 +89,7 @@ app.get("/api/reviews", (req, res) => {
   let result = reviews;
 
   /*
-   * Filter by status when a status is provided.
+   * Filter by status.
    */
   if (status) {
     result = result.filter(
@@ -103,9 +103,15 @@ app.get("/api/reviews", (req, res) => {
   if (searchTerm) {
     result = result.filter((review) => {
       return (
-        review.title.toLowerCase().includes(searchTerm) ||
-        review.developer.toLowerCase().includes(searchTerm) ||
-        review.reviewer.toLowerCase().includes(searchTerm)
+        review.title
+          .toLowerCase()
+          .includes(searchTerm) ||
+        review.developer
+          .toLowerCase()
+          .includes(searchTerm) ||
+        review.reviewer
+          .toLowerCase()
+          .includes(searchTerm)
       );
     });
   }
@@ -119,18 +125,24 @@ app.get("/api/reviews", (req, res) => {
 app.get("/api/reviews/stats", (req, res) => {
   const stats = {
     total: reviews.length,
+
     open: reviews.filter(
       (review) => review.status === "Open"
     ).length,
+
     inReview: reviews.filter(
       (review) => review.status === "In Review"
     ).length,
+
     changesRequested: reviews.filter(
-      (review) => review.status === "Changes Requested"
+      (review) =>
+        review.status === "Changes Requested"
     ).length,
+
     approved: reviews.filter(
       (review) => review.status === "Approved"
     ).length,
+
     merged: reviews.filter(
       (review) => review.status === "Merged"
     ).length
@@ -169,28 +181,50 @@ app.post("/api/reviews", (req, res) => {
     priority
   } = req.body;
 
-  if (!title || !developer || !reviewer || !priority) {
+  /*
+   * Remove unnecessary spaces from user input.
+   */
+  const cleanTitle = title?.trim();
+  const cleanDeveloper = developer?.trim();
+  const cleanReviewer = reviewer?.trim();
+
+  /*
+   * Reject missing or whitespace-only fields.
+   */
+  if (
+    !cleanTitle ||
+    !cleanDeveloper ||
+    !cleanReviewer ||
+    !priority
+  ) {
     return res.status(400).json({
       error:
         "Title, developer, reviewer and priority are required."
     });
   }
 
+  /*
+   * Validate priority.
+   */
   if (!allowedPriorities.includes(priority)) {
     return res.status(400).json({
       error: "Invalid priority."
     });
   }
 
+  /*
+   * Generate the next review ID.
+   */
   const newReview = {
     id: reviews.length > 0
       ? Math.max(
           ...reviews.map((review) => review.id)
         ) + 1
       : 1,
-    title,
-    developer,
-    reviewer,
+
+    title: cleanTitle,
+    developer: cleanDeveloper,
+    reviewer: cleanReviewer,
     priority,
     status: "Open"
   };
@@ -262,10 +296,12 @@ app.use((req, res) => {
 });
 
 /*
- * Start server only when this file is run directly.
+ * Start server only when this file
+ * is run directly.
  *
- * This allows the automated tests to import the
- * Express application without starting a second server.
+ * This allows automated tests to import
+ * the Express application without starting
+ * another server.
  */
 if (require.main === module) {
   app.listen(PORT, () => {
