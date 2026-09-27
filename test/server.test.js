@@ -1,0 +1,7 @@
+const test=require("node:test");const assert=require("node:assert");const {app,reviews}=require("../server");let server;let baseUrl;
+test.before(async()=>{server=app.listen(0);baseUrl=`http://127.0.0.1:${server.address().port}`;});
+test.after(()=>server.close());
+test("health endpoint returns ok",async()=>{const response=await fetch(`${baseUrl}/health`);const body=await response.json();assert.equal(response.status,200);assert.equal(body.status,"ok");});
+test("POST creates a review",async()=>{const before=reviews.length;const response=await fetch(`${baseUrl}/api/reviews`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:"Add login tests",developer:"Student A",reviewer:"Student B",priority:"High"})});const body=await response.json();assert.equal(response.status,201);assert.equal(reviews.length,before+1);assert.equal(body.status,"Open");});
+test("POST rejects missing fields",async()=>{const response=await fetch(`${baseUrl}/api/reviews`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:"Incomplete review"})});assert.equal(response.status,400);});
+test("status can be updated",async()=>{const review=reviews[0];const response=await fetch(`${baseUrl}/api/reviews/${review.id}/status`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"Approved"})});const body=await response.json();assert.equal(response.status,200);assert.equal(body.status,"Approved");});
